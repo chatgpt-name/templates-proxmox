@@ -53,8 +53,7 @@ for DIR in "$BASE_PATH"/*/; do
   VMID="$(basename "$DIR")"
   [[ $VMID =~ ^[0-9]+$ ]] || continue
   DISK_FILE="$DIR/base-${VMID}-disk-0.raw"
-  CI_FILE="$DIR/vm-${VMID}-cloudinit.qcow2"
-  if [[ -f "$DISK_FILE" && -f "$CI_FILE" ]]; then
+  if [[ -f "$DISK_FILE" ]]; then
     echo "  [$VMID] - ${VM_NAMES[$VMID]:-unknown}"
     AVAILABLE+=("$VMID")
   fi
@@ -71,10 +70,8 @@ read -rp "Enter VMIDs to upload (separated by spaces): " -a SELECTED_VMS
 for VMID in "${SELECTED_VMS[@]}"; do
   DIR="$BASE_PATH/$VMID"
   DISK_FILE="base-${VMID}-disk-0.raw"
-  CI_FILE="vm-${VMID}-cloudinit.qcow2"
-
-  if [[ ! -f "$DIR/$DISK_FILE" || ! -f "$DIR/$CI_FILE" ]]; then
-    echo "Skipping $VMID: required files missing" >&2
+  if [[ ! -f "$DIR/$DISK_FILE" ]]; then
+    echo "Skipping $VMID: required disk file missing" >&2
     continue
   fi
 
@@ -87,9 +84,6 @@ for VMID in "${SELECTED_VMS[@]}"; do
   echo "Uploading $VMID ..."
   ssh "$PROXMOX_USER@$PROXMOX_HOST" "mkdir -p /var/lib/vz/images/$VMID"
   scp "$DIR/$DISK_FILE" "$PROXMOX_USER@$PROXMOX_HOST:/var/lib/vz/images/$VMID/"
-  if ! ssh "$PROXMOX_USER@$PROXMOX_HOST" "test -f /var/lib/vz/images/$VMID/$CI_FILE"; then
-    scp "$DIR/$CI_FILE" "$PROXMOX_USER@$PROXMOX_HOST:/var/lib/vz/images/$VMID/"
-  fi
 
   ssh "$PROXMOX_USER@$PROXMOX_HOST" \
     "qm create $VMID --name ${VM_NAMES[$VMID]:-template-$VMID} --memory $RAM --net0 virtio,bridge=$BRIDGE"
